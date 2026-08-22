@@ -1,0 +1,52 @@
+name: Daily Joshan Kabir
+
+on:
+  schedule:
+    # 08:00 Asia/Tehran = 04:30 UTC
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-joshan-kabir
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Sync 100 sections
+        run: python sync_data.py
+
+      - name: Publish today's section
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python main.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "Daily Joshan Kabir Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json data/joshan_kabir.json
+          if git diff --cached --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "Update daily Joshan Kabir state"
+            git push
+          fi
