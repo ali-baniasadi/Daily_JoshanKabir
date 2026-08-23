@@ -2,51 +2,70 @@ name: Daily Joshan Kabir
 
 on:
   schedule:
-    # 08:00 Asia/Tehran = 04:30 UTC
     - cron: "30 4 * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
 
-concurrency:
-  group: daily-joshan-kabir
-  cancel-in-progress: false
-
 jobs:
-  publish:
+  send:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Sync 100 sections
-        run: python sync_data.py
+      - name: Build dataset if missing
+        run: |
+          python - <<'PY'
+          import json
 
-      - name: Publish today's section
+          path = "data/joshan_kabir.json"
+
+          try:
+              with open(path, encoding="utf-8") as f:
+                  data = json.load(f)
+
+              valid = (
+                  len(data) == 100
+                  and [x["number"] for x in data] == list(range(1, 101))
+              )
+          except Exception:
+              valid = False
+
+          if not valid:
+              import subprocess
+              subprocess.run(
+                  ["python", "bootstrap_data.py"],
+                  check=True
+              )
+          PY
+
+      - name: Validate dataset
+        run: python validate_data.py
+
+      - name: Send today's section
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: python main.py
 
-      - name: Commit updated state
+      - name: Save state
         run: |
-          git config user.name "Daily Joshan Kabir Bot"
+          git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add state.json data/joshan_kabir.json
-          if git diff --cached --quiet; then
-            echo "No state changes to commit."
-          else
-            git commit -m "Update daily Joshan Kabir state"
-            git push
-          fi
+
+          git add data/joshan_kabir.json state.json
+
+          git diff --cached --quiet || git commit \
+            -m "chore: advance Joshan Kabir section"
+
+          git push
