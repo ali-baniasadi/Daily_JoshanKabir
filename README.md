@@ -1,149 +1,42 @@
-# 🤲 Daily Joshan Kabir
+# Daily Joshan Kabir
 
-ربات تلگرام برای انتشار روزانه‌ی **یک فراز از دعای جوشن کبیر** به ترتیب از فراز ۱ تا ۱۰۰.
+Telegram bot for `@Daily_JoshanKabir`.
 
-## رفتار ربات
+## What it does
 
-هر روز یک پست در کانال زیر منتشر می‌شود:
+- Sends exactly one section per day.
+- Starts at section 1.
+- Advances only after Telegram confirms successful delivery.
+- Sends sections in strict order: 1 → 2 → ... → 100.
+- Stops advancing after section 100.
+- Appends:
+  `🆔 @Daily_JoshanKabir | دعای جوشن کبیر`
+- Uses a local JSON dataset after the one-time bootstrap.
+- No daily scraping is required.
 
-`@Daily_JoshanKabir`
+## Source
 
-فرمت پست:
+The one-time bootstrap uses Setare's complete page containing the Arabic text and Persian
+translation of all 100 sections:
+https://setare.com/fa/news/8699/
 
-🕊️ **فراز X از دعای جوشن کبیر**
+The page states that the prayer has 100 sections and presents the full Arabic text with
+Persian translation.
 
-متن عربی فراز
+## Setup
 
-🌱 **معنی:**
-ترجمه فارسی
+1. Create a Telegram bot with BotFather.
+2. Add it as administrator to `@Daily_JoshanKabir` with permission to post messages.
+3. Put the project in GitHub.
+4. Add repository secret:
+   `TELEGRAM_BOT_TOKEN`
+5. Open Actions and run **Daily Joshan Kabir** manually once.
 
-🆔 @Daily_JoshanKabir | دعای جوشن کبیر
+The workflow automatically builds and validates `data/joshan_kabir.json` if it is empty or
+incomplete, then sends the current section and commits the dataset/state.
 
-فراز بعدی فقط بعد از ارسال موفق فراز فعلی انتخاب می‌شود؛ بنابراین اگر Telegram خطا بدهد، شماره جلو نمی‌رود.
+## Schedule
 
-پس از انتشار فراز ۱۰۰، ربات متوقف می‌شود.
+`30 4 * * *` = 04:30 UTC, which is 08:00 Iran time while Iran is UTC+3:30.
 
-## منبع متن و ترجمه
-
-داده‌ها در زمان اجرای workflow از صفحه‌ی دعای جوشن کبیر در سایت مؤسسه قرآنی ولی‌عصر (عج) دریافت و در `data/joshan_kabir.json` ذخیره می‌شوند.
-
-منبع:
-https://www.maood.ir/دعاها-و-زیارات/دعاهای-ماه-مبارک-رمضان/446-دعای-جوشن-کبیر.html
-
-صفحه منبع شامل ۱۰۰ بند دعای جوشن کبیر و ترجمه فارسی آن‌هاست.
-
-## راه‌اندازی
-
-### 1. ساخت Bot
-
-در Telegram به `@BotFather` برو و یک Bot بساز.
-
-توکن Bot را نگه دار.
-
-### 2. اضافه کردن Bot به کانال
-
-Bot را به عنوان **Administrator** در `@Daily_JoshanKabir` اضافه کن و اجازه‌ی ارسال پیام بده.
-
-### 3. ساخت Repository
-
-این فایل‌ها را در یک GitHub Repository قرار بده:
-
-```text
-Daily_JoshanKabir/
-├── main.py
-├── sync_data.py
-├── requirements.txt
-├── state.json
-├── data/
-│   └── joshan_kabir.json
-└── .github/
-    └── workflows/
-        └── daily.yml
-```
-
-`data/joshan_kabir.json` را می‌توانی بعد از اولین اجرای `sync_data.py` ایجاد کنی؛ خود workflow هم آن را می‌سازد.
-
-### 4. GitHub Secret
-
-در Repository برو به:
-
-`Settings → Secrets and variables → Actions → New repository secret`
-
-یک Secret بساز:
-
-```text
-Name:
-TELEGRAM_BOT_TOKEN
-
-Value:
-توکن BotFather
-```
-
-### 5. اجرای تست
-
-از GitHub:
-
-`Actions → Daily Joshan Kabir → Run workflow`
-
-در اولین اجرا باید **فراز ۱** ارسال شود.
-
-بعد از آن:
-
-```text
-روز ۱  → فراز ۱
-روز ۲  → فراز ۲
-روز ۳  → فراز ۳
-...
-روز ۱۰۰ → فراز ۱۰۰
-```
-
-## ساعت ارسال
-
-Workflow در ساعت:
-
-**08:00 به وقت ایران**
-
-اجرا می‌شود.
-
-Cron:
-
-```text
-30 4 * * *
-```
-
-که معادل 04:30 UTC است.
-
-اگر می‌خواهی ساعت را تغییر بدهی، فقط مقدار `cron` در `.github/workflows/daily.yml` را تغییر بده.
-
-## تست روی Mac
-
-```bash
-cd Daily_JoshanKabir
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-export TELEGRAM_BOT_TOKEN="TOKEN_HERE"
-
-python sync_data.py
-python main.py
-```
-
-## شروع دوباره از فراز ۱
-
-فایل `state.json` را به این حالت برگردان:
-
-```json
-{
-  "current_section": 1,
-  "completed": false
-}
-```
-
-بعد commit و push کن.
-
-## نکته مهم
-
-`state.json` عمداً در Repository نگهداری می‌شود تا GitHub Actions بداند فردا باید کدام فراز را ارسال کند.
-
-Workflow بعد از ارسال موفق، state را commit و push می‌کند.
+GitHub Actions cron is UTC.
