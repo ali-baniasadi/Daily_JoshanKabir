@@ -1,4 +1,5 @@
 import json, os
+from datetime import datetime, timezone
 from pathlib import Path
 import requests
 
@@ -21,13 +22,14 @@ def load_data():
 def load_state():
     if not STATE.exists():
         STATE.write_text('{"current_fraz": 1}\n', encoding="utf-8")
-    n = int(json.loads(STATE.read_text(encoding="utf-8"))["current_fraz"])
+    st = json.loads(STATE.read_text(encoding="utf-8"))
+    n = int(st["current_fraz"])
     if not 1 <= n <= 100:
         raise RuntimeError(f"Invalid current_fraz: {n}")
-    return n
+    return n, st.get("last_sent")
 
-def save_state(n):
-    STATE.write_text(json.dumps({"current_fraz": n}, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
+def save_state(n, last_sent):
+    STATE.write_text(json.dumps({"current_fraz": n, "last_sent": last_sent}, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
 
 def send(text):
     if not TOKEN:
@@ -44,7 +46,13 @@ def send(text):
 
 def main():
     data = load_data()
-    n = load_state()
+    n, last_sent = load_state()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Several early cron triggers exist to beat GitHub's schedule delays;
+    # only the first one of the day may send. Manual runs set FORCE_SEND=1.
+    if last_sent == today and os.environ.get("FORCE_SEND") != "1":
+        print(f"Already sent today ({today}); skipping.")
+        return
     s = data[n-1]
     text = (
         f"🕊️ <b>فراز {n} از دعای جوشن کبیر</b>\n\n"
@@ -53,9 +61,10 @@ def main():
     )
     send(text)
     if n < 100:
-        save_state(n+1)
+        save_state(n+1, today)
         print(f"Sent section {n}; next={n+1}")
     else:
+        save_state(n, today)
         print("Sent section 100; sequence complete.")
 
 if __name__ == "__main__":

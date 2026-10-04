@@ -2,8 +2,21 @@ name: Daily Joshan Kabir
 
 on:
   schedule:
-    - cron: "30 4 * * *"
+    # GitHub delays scheduled runs (often by hours around :00/:30). So we trigger
+    # several times EARLY at odd minutes; the "Wait" step holds until TARGET_UTC
+    # and only the first run of the day sends (see last_sent in state.json).
+    - cron: "17 1 * * *"
+    - cron: "43 2 * * *"
+    - cron: "13 3 * * *"
+    - cron: "41 3 * * *"
   workflow_dispatch:
+
+concurrency:
+  group: daily-send
+  cancel-in-progress: false
+
+env:
+  TARGET_UTC: "04:30"   # 08:00 Tehran
 
 permissions:
   contents: write
@@ -15,6 +28,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Wait until target time
+        if: github.event_name == 'schedule'
+        run: |
+          now=$(date -u +%s)
+          target=$(date -u -d "$(date -u +%F) $TARGET_UTC" +%s)
+          wait=$((target - now))
+          if [ "$wait" -gt 0 ] && [ "$wait" -le 14400 ]; then
+            echo "Sleeping ${wait}s until $TARGET_UTC UTC"
+            sleep "$wait"
+          else
+            echo "Target time already passed; sending now"
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -56,6 +82,7 @@ jobs:
       - name: Send today's section
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: python main.py
 
       - name: Save state
